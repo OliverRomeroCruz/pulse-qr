@@ -7,6 +7,7 @@ import AnalyticsPanel from './components/AnalyticsPanel';
 import QrList from './components/QrList';
 import EditUrlModal from './components/EditUrlModal';
 import PrintableCardModal from './components/PrintableCardModal';
+import AuthModal from './components/AuthModal';
 import { BarChart3, Plus, Sparkles, QrCode, Layers, RefreshCw, ArrowLeft } from 'lucide-react';
 
 export default function App() {
@@ -14,8 +15,14 @@ export default function App() {
   const [qrs, setQrs] = useState([]);
   const [activeQrId, setActiveQrId] = useState(null);
   const [activeQrDetails, setActiveQrDetails] = useState(null);
-  const [activeTab, setActiveTab] = useState('creator'); // 'creator' | 'list'
+  const [activeTab, setActiveTab] = useState('creator'); // 'creator' | 'list' | 'details'
   
+  // User Authentication State
+  const [token, setToken] = useState(() => localStorage.getItem('pulse_qr_token'));
+  const [user, setUser] = useState(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState('login');
+
   // Customization state: Default is Classic Black & White without emoji
   const [customization, setCustomization] = useState({
     fgColor: '#000000',
@@ -32,6 +39,29 @@ export default function App() {
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [qrToEdit, setQrToEdit] = useState(null);
 
+  // Verify and load user session if token exists
+  useEffect(() => {
+    if (token) {
+      fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => {
+          if (res.ok) return res.json();
+          throw new Error('Sesión no válida o expirada');
+        })
+        .then(data => {
+          setUser(data.user);
+        })
+        .catch(() => {
+          setUser(null);
+          setToken(null);
+          localStorage.removeItem('pulse_qr_token');
+        });
+    } else {
+      setUser(null);
+    }
+  }, [token]);
+
   // Auto-save customization when user tweaks colors or emoji
   const handleCustomizationChange = (newCustomization) => {
     setCustomization(newCustomization);
@@ -46,7 +76,7 @@ export default function App() {
     });
 
     // Auto-save changes to the server database with debounce
-    if (activeQrId) {
+    if (activeQrId && token) {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
@@ -54,7 +84,10 @@ export default function App() {
         try {
           await fetch(`/api/qrs/${activeQrId}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
             body: JSON.stringify({ customization: newCustomization })
           });
         } catch (e) {
@@ -77,10 +110,16 @@ export default function App() {
     }
   };
 
-  // Fetch list of all QRs
-  const fetchQrs = useCallback(async () => {
+  // Fetch list of user's QRs
+  const fetchQrs = useCallback(async (authToken = token) => {
+    if (!authToken) {
+      setQrs([]);
+      return;
+    }
     try {
-      const res = await fetch('/api/qrs');
+      const res = await fetch('/api/qrs', {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setQrs(data);
@@ -89,17 +128,21 @@ export default function App() {
         if (!activeQrId && data.length > 0) {
           setActiveQrId(data[0].id);
         }
+      } else if (res.status === 401) {
+        setQrs([]);
       }
     } catch (e) {
       console.error('Error fetching QRs:', e);
     }
-  }, [activeQrId]);
+  }, [activeQrId, token]);
 
   // Load a QR when user clicks or changes QR (loads saved customization)
-  const loadQrDetails = useCallback(async (id) => {
-    if (!id) return;
+  const loadQrDetails = useCallback(async (id, authToken = token) => {
+    if (!id || !authToken) return;
     try {
-      const res = await fetch(`/api/qrs/${id}`);
+      const res = await fetch(`/api/qrs/${id}`, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setActiveQrDetails(data);
@@ -116,13 +159,15 @@ export default function App() {
     } catch (e) {
       console.error('Error loading QR details:', e);
     }
-  }, []);
+  }, [token]);
 
   // Background polling: ONLY updates scans and stats, NEVER overwrites customization!
   const pollStatsOnly = useCallback(async (id) => {
-    if (!id) return;
+    if (!id || !token) return;
     try {
-      const res = await fetch(`/api/qrs/${id}`);
+      const res = await fetch(`/api/qrs/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setActiveQrDetails(prev => {
@@ -133,38 +178,62 @@ export default function App() {
             recentScans: data.recentScans,
             totalScans: data.stats?.totalScans ?? prev.totalScans,
             uniqueVisitors: data.stats?.uniqueVisitors ?? prev.uniqueVisitors,
-            // Keep local customization untouched during polling!
           };
         });
       }
     } catch (e) {
       console.error('Error polling stats:', e);
     }
-  }, []);
+  }, [token]);
 
   // Initial load
   useEffect(() => {
     fetchServerInfo();
-    fetchQrs();
-  }, [fetchQrs]);
+    if (token) {
+      fetchQrs(token);
+    }
+  }, [token, fetchQrs]);
 
   // When activeQrId changes, load its full details
   useEffect(() => {
-    if (activeQrId) {
-      loadQrDetails(activeQrId);
+    if (activeQrId && token) {
+      loadQrDetails(activeQrId, token);
     }
-  }, [activeQrId, loadQrDetails]);
+  }, [activeQrId, token, loadQrDetails]);
 
-  // Auto-refresh stats every 4 seconds to catch scans from mobile in real-time without resetting customization
+  // Auto-refresh stats every 4 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      if (activeQrId && !document.hidden) {
+      if (activeQrId && token && !document.hidden) {
         pollStatsOnly(activeQrId);
-        fetchQrs();
+        fetchQrs(token);
       }
     }, 4000);
     return () => clearInterval(interval);
-  }, [activeQrId, pollStatsOnly, fetchQrs]);
+  }, [activeQrId, token, pollStatsOnly, fetchQrs]);
+
+  // Auth Handlers
+  const handleAuthSuccess = (authUser, authToken) => {
+    setUser(authUser);
+    setToken(authToken);
+    localStorage.setItem('pulse_qr_token', authToken);
+    fetchQrs(authToken);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem('pulse_qr_token');
+    setQrs([]);
+    setActiveQrId(null);
+    setActiveQrDetails(null);
+    setActiveTab('creator');
+  };
+
+  const handleOpenAuth = (mode = 'login') => {
+    setAuthModalMode(mode);
+    setIsAuthModalOpen(true);
+  };
 
   // Handlers
   const handleQrCreated = (newQr) => {
@@ -183,7 +252,10 @@ export default function App() {
   const handleDeleteQr = async (id) => {
     if (!window.confirm('¿Seguro que deseas eliminar este código QR?')) return;
     try {
-      const res = await fetch(`/api/qrs/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/qrs/${id}`, { 
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         const updated = qrs.filter(q => q.id !== id);
         setQrs(updated);
@@ -223,7 +295,6 @@ export default function App() {
         serverInfo={serverInfo}
         onNewQr={() => {
           setActiveTab('creator');
-          // Focus generator
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         activeTab={activeTab}
@@ -231,9 +302,14 @@ export default function App() {
         totalQrs={qrs.length}
         onRefresh={() => {
           fetchServerInfo();
-          fetchQrs();
-          if (activeQrId) loadQrDetails(activeQrId);
+          if (token) {
+            fetchQrs(token);
+            if (activeQrId) loadQrDetails(activeQrId, token);
+          }
         }}
+        user={user}
+        onOpenAuth={handleOpenAuth}
+        onLogout={handleLogout}
       />
 
       {/* Main Container */}
@@ -250,6 +326,9 @@ export default function App() {
                   onCreated={handleQrCreated}
                   serverInfo={serverInfo}
                   currentCustomization={customization}
+                  user={user}
+                  token={token}
+                  onRequireAuth={handleOpenAuth}
                 />
 
                 <QrCustomizer
@@ -279,7 +358,11 @@ export default function App() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-white">Todos tus Códigos QR</h2>
-                <p className="text-xs text-slate-400">Administra tus enlaces dinámicos, revisa sus métricas y descárgalos</p>
+                <p className="text-xs text-slate-400">
+                  {user 
+                    ? `Administrando los códigos QR de la cuenta de ${user.name}` 
+                    : 'Inicia sesión para gestionar y rastrear tus códigos QR'}
+                </p>
               </div>
             </div>
 
@@ -290,6 +373,8 @@ export default function App() {
               onNewQr={() => setActiveTab('creator')}
               onDeleteQr={handleDeleteQr}
               serverInfo={serverInfo}
+              user={user}
+              onRequireAuth={handleOpenAuth}
             />
           </div>
         )}
@@ -323,7 +408,7 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setActiveTab('creator')}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Crear otro QR</span>
@@ -354,9 +439,10 @@ export default function App() {
               <div className="lg:col-span-7">
                 <AnalyticsPanel
                   qrDetails={activeQrDetails}
-                  onRefreshDetails={() => loadQrDetails(activeQrId)}
+                  onRefreshDetails={() => loadQrDetails(activeQrId, token)}
                   onOpenEditModal={handleOpenEditModal}
                   onDeleteQr={handleDeleteQr}
+                  token={token}
                 />
               </div>
 
@@ -369,15 +455,23 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 bg-slate-950/60 py-4 text-center text-xs text-slate-500">
-        <p>PulseQR • Generador dinámico con analítica de escaneos, detección de dispositivos y descargas vectoriales</p>
+        <p>PulseQR • Generador dinámico con cuentas de usuario, analítica de escaneos y descargas HD</p>
       </footer>
 
       {/* Modals */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+        initialMode={authModalMode}
+      />
+
       <EditUrlModal
         qr={qrToEdit}
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         onSaved={handleSavedEdit}
+        token={token}
       />
 
       <PrintableCardModal

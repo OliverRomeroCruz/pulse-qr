@@ -6,12 +6,15 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import os from 'os';
 import { UAParser } from 'ua-parser-js';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET || 'pulse-qr-super-secure-jwt-secret-key-2026';
 
 // Middleware
 app.use(cors());
@@ -20,6 +23,7 @@ app.use(express.json());
 // Paths
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'qrs.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -28,6 +32,7 @@ if (!fs.existsSync(DATA_DIR)) {
 
 // Memory database
 let qrDatabase = [];
+let usersDatabase = [];
 
 function loadData() {
   try {
@@ -39,7 +44,7 @@ function loadData() {
       saveData();
     }
   } catch (err) {
-    console.error('Error cargando base de datos:', err);
+    console.error('Error cargando base de datos QR:', err);
     qrDatabase = [];
   }
 }
@@ -50,12 +55,59 @@ function saveData() {
     fs.writeFileSync(tempFile, JSON.stringify(qrDatabase, null, 2), 'utf-8');
     fs.renameSync(tempFile, DB_FILE);
   } catch (err) {
-    console.error('Error guardando base de datos:', err);
+    console.error('Error guardando base de datos QR:', err);
   }
 }
 
-// Initial load
+function loadUsers() {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      const raw = fs.readFileSync(USERS_FILE, 'utf-8');
+      usersDatabase = JSON.parse(raw);
+    } else {
+      usersDatabase = [];
+      saveUsers();
+    }
+  } catch (err) {
+    console.error('Error cargando usuarios:', err);
+    usersDatabase = [];
+  }
+}
+
+function saveUsers() {
+  try {
+    const tempFile = `${USERS_FILE}.tmp`;
+    fs.writeFileSync(tempFile, JSON.stringify(usersDatabase, null, 2), 'utf-8');
+    fs.renameSync(tempFile, USERS_FILE);
+  } catch (err) {
+    console.error('Error guardando usuarios:', err);
+  }
+}
+
+// Initial loads
 loadData();
+loadUsers();
+
+// Auth Middleware: Verify JWT and attach req.user
+function requireAuth(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Debes iniciar sesión para continuar.' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = usersDatabase.find(u => u.id === decoded.id);
+    if (!user) {
+      return res.status(401).json({ error: 'Usuario no encontrado o sesión expirada.' });
+    }
+    req.user = { id: user.id, name: user.name, email: user.email };
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Sesión inválida o expirada. Inicia sesión de nuevo.' });
+  }
+}
 
 // Get local IPv4 address
 function getLocalIp() {
@@ -114,7 +166,7 @@ function calculateStats(qr) {
     const bName = scan.browser || 'Desconocido';
     browserBreakdown[bName] = (browserBreakdown[bName] || 0) + 1;
 
-    // Daily scans (last 14 days)
+    // Daily scans
     const dateStr = scan.timestamp ? scan.timestamp.split('T')[0] : 'Desconocido';
     dailyBreakdown[dateStr] = (dailyBreakdown[dateStr] || 0) + 1;
   });
@@ -130,7 +182,100 @@ function calculateStats(qr) {
   };
 }
 
-// ======================== API ROUTES ========================
+// ======================== AUTH ROUTES ========================
+
+// Register
+app.post('/api/auth/register', (req, res) => {
+  const { name, email, password } = req.body;
+
+  if (!name || typeof name !== 'string' || name.trim().length < 2) {
+    return res.status(400).json({ error: 'Por favor introduce un nombre válido (mínimo 2 letras).' });
+  }
+
+  if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    return res.status(400).json({ error: 'Por favor introduce un correo electrónico válido.' });
+  }
+
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres.' });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  const existing = usersDatabase.find(u => u.email.toLowerCase() === cleanEmail);
+  if (existing) {
+    return res.status(409).json({ error: 'Ya existe una cuenta registrada con este correo electrónico.' });
+  }
+
+  const userId = crypto.randomUUID();
+  const passwordHash = bcrypt.hashSync(password, 10);
+  const now = new Date().toISOString();
+
+  const newUser = {
+    id: userId,
+    name: name.trim(),
+    email: cleanEmail,
+    passwordHash,
+    createdAt: now,
+  };
+
+  usersDatabase.push(newUser);
+  saveUsers();
+
+  // If this is the first user and there are orphan QRs without a userId, associate them!
+  let assignedCount = 0;
+  qrDatabase.forEach(qr => {
+    if (!qr.userId) {
+      qr.userId = userId;
+      assignedCount++;
+    }
+  });
+  if (assignedCount > 0) {
+    saveData();
+  }
+
+  const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '30d' });
+
+  res.status(201).json({
+    user: { id: newUser.id, name: newUser.name, email: newUser.email },
+    token,
+    message: 'Cuenta creada con éxito.'
+  });
+});
+
+// Login
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Introduce correo electrónico y contraseña.' });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  const user = usersDatabase.find(u => u.email.toLowerCase() === cleanEmail);
+  if (!user) {
+    return res.status(401).json({ error: 'No existe ninguna cuenta con este correo electrónico.' });
+  }
+
+  const isMatch = bcrypt.compareSync(password, user.passwordHash);
+  if (!isMatch) {
+    return res.status(401).json({ error: 'Contraseña incorrecta. Inténtalo de nuevo.' });
+  }
+
+  const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+
+  res.json({
+    user: { id: user.id, name: user.name, email: user.email },
+    token,
+    message: 'Inicio de sesión correcto.'
+  });
+});
+
+// Get current session user
+app.get('/api/auth/me', requireAuth, (req, res) => {
+  res.json({ user: req.user });
+});
+
+// ======================== API ROUTES (Protected) ========================
 
 // System info
 app.get('/api/info', (req, res) => {
@@ -144,14 +289,17 @@ app.get('/api/info', (req, res) => {
     localBaseUrl: `http://${localIp}:${PORT}`,
     localhostBaseUrl: `http://localhost:${PORT}`,
     currentBaseUrl: `${protocol}://${host}`,
+    totalUsers: usersDatabase.length,
     totalQrs: qrDatabase.length,
     totalScansRecorded: qrDatabase.reduce((acc, qr) => acc + (qr.scans ? qr.scans.length : 0), 0)
   });
 });
 
-// List all QRs (summaries)
-app.get('/api/qrs', (req, res) => {
-  const list = qrDatabase.map(qr => {
+// List all QRs for the logged-in user
+app.get('/api/qrs', requireAuth, (req, res) => {
+  const userQrs = qrDatabase.filter(qr => qr.userId === req.user.id);
+
+  const list = userQrs.map(qr => {
     const stats = calculateStats(qr);
     return {
       id: qr.id,
@@ -171,8 +319,8 @@ app.get('/api/qrs', (req, res) => {
   res.json(list);
 });
 
-// Create new QR
-app.post('/api/qrs', (req, res) => {
+// Create new QR for the logged-in user
+app.post('/api/qrs', requireAuth, (req, res) => {
   let { url, title, customCode, customization } = req.body;
 
   if (!url || typeof url !== 'string') {
@@ -204,6 +352,7 @@ app.post('/api/qrs', (req, res) => {
 
   const newQr = {
     id,
+    userId: req.user.id,
     code,
     title: title && title.trim() ? title.trim() : 'Enlace sin título',
     originalUrl: url,
@@ -211,10 +360,10 @@ app.post('/api/qrs', (req, res) => {
     updatedAt: now,
     customization: customization || {
       fgColor: '#000000',
-      bgColor: '#FFFFFF',
+      bgColor: '#ffffff',
       errorLevel: 'M',
       margin: 2,
-      style: 'squares', // squares | rounded | dots
+      style: 'squares',
       logo: null
     },
     scans: []
@@ -230,16 +379,14 @@ app.post('/api/qrs', (req, res) => {
   });
 });
 
-// Get single QR with full scan logs and aggregations
-app.get('/api/qrs/:id', (req, res) => {
-  const qr = qrDatabase.find(q => q.id === req.params.id || q.code === req.params.id);
+// Get single QR with full scan logs (User must own this QR)
+app.get('/api/qrs/:id', requireAuth, (req, res) => {
+  const qr = qrDatabase.find(q => (q.id === req.params.id || q.code === req.params.id) && q.userId === req.user.id);
   if (!qr) {
-    return res.status(404).json({ error: 'Código QR no encontrado.' });
+    return res.status(404).json({ error: 'Código QR no encontrado en tu cuenta.' });
   }
 
   const stats = calculateStats(qr);
-  
-  // Return last 100 scans for detail view
   const recentScans = (qr.scans || []).slice(-100).reverse();
 
   res.json({
@@ -249,11 +396,11 @@ app.get('/api/qrs/:id', (req, res) => {
   });
 });
 
-// Update QR destination, title or design (Dynamic QR!)
-app.patch('/api/qrs/:id', (req, res) => {
-  const qr = qrDatabase.find(q => q.id === req.params.id);
+// Update QR destination, title or design (User must own this QR)
+app.patch('/api/qrs/:id', requireAuth, (req, res) => {
+  const qr = qrDatabase.find(q => q.id === req.params.id && q.userId === req.user.id);
   if (!qr) {
-    return res.status(404).json({ error: 'Código QR no encontrado.' });
+    return res.status(404).json({ error: 'Código QR no encontrado en tu cuenta.' });
   }
 
   const { originalUrl, title, customization } = req.body;
@@ -281,11 +428,11 @@ app.patch('/api/qrs/:id', (req, res) => {
   res.json({ ...qr, stats });
 });
 
-// Delete QR
-app.delete('/api/qrs/:id', (req, res) => {
-  const index = qrDatabase.findIndex(q => q.id === req.params.id);
+// Delete QR (User must own this QR)
+app.delete('/api/qrs/:id', requireAuth, (req, res) => {
+  const index = qrDatabase.findIndex(q => q.id === req.params.id && q.userId === req.user.id);
   if (index === -1) {
-    return res.status(404).json({ error: 'Código QR no encontrado.' });
+    return res.status(404).json({ error: 'Código QR no encontrado en tu cuenta.' });
   }
 
   qrDatabase.splice(index, 1);
@@ -294,10 +441,10 @@ app.delete('/api/qrs/:id', (req, res) => {
 });
 
 // Reset scan statistics
-app.post('/api/qrs/:id/reset', (req, res) => {
-  const qr = qrDatabase.find(q => q.id === req.params.id);
+app.post('/api/qrs/:id/reset', requireAuth, (req, res) => {
+  const qr = qrDatabase.find(q => q.id === req.params.id && q.userId === req.user.id);
   if (!qr) {
-    return res.status(404).json({ error: 'Código QR no encontrado.' });
+    return res.status(404).json({ error: 'Código QR no encontrado en tu cuenta.' });
   }
 
   qr.scans = [];
@@ -308,11 +455,11 @@ app.post('/api/qrs/:id/reset', (req, res) => {
   res.json({ success: true, message: 'Estadísticas reiniciadas.', stats });
 });
 
-// Simulate scan (Great for testing on PC without opening a mobile phone!)
-app.post('/api/qrs/:id/simulate-scan', (req, res) => {
-  const qr = qrDatabase.find(q => q.id === req.params.id || q.code === req.params.id);
+// Simulate scan (User must own this QR)
+app.post('/api/qrs/:id/simulate-scan', requireAuth, (req, res) => {
+  const qr = qrDatabase.find(q => (q.id === req.params.id || q.code === req.params.id) && q.userId === req.user.id);
   if (!qr) {
-    return res.status(404).json({ error: 'Código QR no encontrado.' });
+    return res.status(404).json({ error: 'Código QR no encontrado en tu cuenta.' });
   }
 
   const { devicePreset = 'iphone' } = req.body;
@@ -395,7 +542,7 @@ app.post('/api/qrs/:id/simulate-scan', (req, res) => {
   });
 });
 
-// ======================== REDIRECTOR / SCAN TRACKER ========================
+// ======================== REDIRECTOR / SCAN TRACKER (100% PUBLIC) ========================
 
 app.get('/r/:code', (req, res) => {
   const { code } = req.params;
@@ -414,7 +561,6 @@ app.get('/r/:code', (req, res) => {
           .card { background: #1e293b; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-width: 400px; }
           h1 { color: #f43f5e; font-size: 1.5rem; }
           p { color: #94a3b8; font-size: 0.95rem; }
-          a { color: #38bdf8; text-decoration: none; font-weight: bold; }
         </style>
       </head>
       <body>
@@ -467,9 +613,7 @@ app.get('/r/:code', (req, res) => {
   qr.scans.push(scanRecord);
   saveData();
 
-  console.log(`[QR SCAN] Código: ${code} | Dispositivo: ${deviceType} (${scanRecord.os} / ${scanRecord.browser}) -> ${qr.originalUrl}`);
-
-  // Check if preview was requested (e.g. for testing)
+  // Check if preview was requested
   if (req.query.preview === '1') {
     return res.send(`
       <!DOCTYPE html>
@@ -497,7 +641,6 @@ app.get('/r/:code', (req, res) => {
           <p>Tu escaneo ha sido contabilizado en tiempo real. Redirigiendo a tu destino...</p>
           <div class="url-box">${qr.originalUrl}</div>
           <div class="spinner"></div>
-          <p style="margin-top: 1rem; font-size: 0.8rem; color: #64748b;">¿No carga? <a href="${qr.originalUrl}" style="color: #38bdf8;">Haz clic aquí</a></p>
         </div>
       </body>
       </html>
@@ -512,7 +655,6 @@ app.get('/r/:code', (req, res) => {
 const distPath = path.join(__dirname, 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
-  // SPA fallback for Express 5
   app.use((req, res, next) => {
     if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/r/')) {
       return res.sendFile(path.join(distPath, 'index.html'));
@@ -524,7 +666,7 @@ if (fs.existsSync(distPath)) {
 // Start Server
 app.listen(PORT, '0.0.0.0', () => {
   const localIp = getLocalIp();
-  console.log(`\n🚀 Servidor QR Tracker iniciado:`);
+  console.log(`\n🚀 Servidor QR Tracker con Autenticación iniciado:`);
   console.log(`   - Local:    http://localhost:${PORT}`);
   console.log(`   - Network:  http://${localIp}:${PORT}`);
   console.log(`   - Data dir: ${DATA_DIR}\n`);

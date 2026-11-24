@@ -92,7 +92,21 @@
         "browser": "Mobile Chrome",
         "browserVersion": "158.0.8127.35",
         "referer": "Escaneo Directo"
+      },
+      {
+        "id": "4d5c5b88-ebe3-4582-9fbc-aaac804b309f",
+        "timestamp": "2026-11-24T11:31:25.312Z",
+        "ipHash": "9eb8d8b935227910",
+        "deviceType": "desktop",
+        "deviceVendor": "PC/Mac",
+        "deviceModel": "",
+        "os": "Desconocido",
+        "osVersion": "",
+        "browser": "Desconocido",
+        "browserVersion": "",
+        "referer": "Escaneo Directo"
       }
-    ]
+    ],
+    "userId": "7e4dd68b-6011-4e32-9283-127e6379e980"
   }
 ]

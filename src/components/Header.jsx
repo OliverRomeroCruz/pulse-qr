@@ -1,5 +1,5 @@
 import React from 'react';
-import { QrCode, Wifi, Plus, BarChart3, RefreshCw, Smartphone } from 'lucide-react';
+import { QrCode, Wifi, Plus, BarChart3, RefreshCw, LogOut, User } from 'lucide-react';
 
 export default function Header({ 
   serverInfo, 
@@ -7,7 +7,10 @@ export default function Header({
   activeTab, 
   setActiveTab, 
   totalQrs,
-  onRefresh
+  onRefresh,
+  user,
+  onOpenAuth,
+  onLogout
 }) {
   return (
     <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-xl sticky top-0 z-40">
@@ -22,7 +25,7 @@ export default function Header({
             <div className="flex items-center gap-2">
               <span className="font-bold text-lg text-white tracking-tight">Pulse<span className="text-cyan-400">QR</span></span>
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                Analítica en Vivo
+                Plataforma Multi-Usuario
               </span>
             </div>
             <p className="text-xs text-slate-400 hidden sm:block">Generador inteligente con rastreo de escaneos y descargas HD</p>
@@ -30,7 +33,7 @@ export default function Header({
         </div>
 
         {/* Network & Status Pills */}
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-3">
           {serverInfo?.localIp && (
             <div 
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs text-slate-300"
@@ -51,11 +54,11 @@ export default function Header({
           </button>
         </div>
 
-        {/* Navigation / Actions */}
-        <div className="flex items-center gap-2">
+        {/* Navigation / Actions / Auth */}
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={() => setActiveTab('creator')}
-            className={`flex items-center gap-2 px-3.5 py-1.75 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
               activeTab === 'creator'
                 ? 'bg-cyan-500 text-white shadow-md shadow-cyan-500/25'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
@@ -67,7 +70,7 @@ export default function Header({
 
           <button
             onClick={() => setActiveTab('list')}
-            className={`flex items-center gap-2 px-3.5 py-1.75 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
               activeTab === 'list' || activeTab === 'details'
                 ? 'bg-slate-800 text-white border border-slate-700'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
@@ -81,6 +84,47 @@ export default function Header({
               </span>
             )}
           </button>
+
+          <div className="h-4 w-px bg-slate-800 mx-1 hidden sm:block" />
+
+          {/* User Profile or Login buttons */}
+          {user ? (
+            <div className="flex items-center gap-2">
+              <div 
+                className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-800/90 border border-slate-700/80 text-xs text-white"
+                title={`Conectado como ${user.email}`}
+              >
+                <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-[11px] text-white">
+                  {user.name ? user.name[0].toUpperCase() : 'U'}
+                </div>
+                <span className="font-medium max-w-[110px] truncate hidden md:inline-block">{user.name}</span>
+              </div>
+
+              <button
+                onClick={onLogout}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-800 transition-colors"
+                title="Cerrar sesión"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onOpenAuth('login')}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                Entrar
+              </button>
+              <button
+                onClick={() => onOpenAuth('register')}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-white shadow-md shadow-cyan-500/20 transition-all cursor-pointer"
+              >
+                Crear Cuenta
+              </button>
+            </div>
+          )}
+
         </div>
 
       </div>

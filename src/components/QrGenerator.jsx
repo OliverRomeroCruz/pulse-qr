@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
-import { Link2, Sparkles, Clipboard, Tag, Hash, ArrowRight, Check } from 'lucide-react';
+import { Link2, Sparkles, Clipboard, Tag, Hash, ArrowRight, Check, Lock } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
-export default function QrGenerator({ onCreated, serverInfo, currentCustomization }) {
+export default function QrGenerator({ 
+  onCreated, 
+  serverInfo, 
+  currentCustomization,
+  user,
+  token,
+  onRequireAuth
+}) {
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [customCode, setCustomCode] = useState('');
@@ -32,13 +39,22 @@ export default function QrGenerator({ onCreated, serverInfo, currentCustomizatio
       return;
     }
 
+    // If user is not logged in, open Auth Modal
+    if (!user || !token) {
+      onRequireAuth('register');
+      return;
+    }
+
     setErrorMsg('');
     setIsSubmitting(true);
 
     try {
       const response = await fetch('/api/qrs', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           url: url.trim(),
           title: title.trim() || undefined,
@@ -157,6 +173,16 @@ export default function QrGenerator({ onCreated, serverInfo, currentCustomizatio
           </div>
         </div>
 
+        {/* Auth notice if not logged in */}
+        {!user && (
+          <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs flex items-center gap-2">
+            <Lock className="w-4 h-4 shrink-0 text-cyan-400" />
+            <span>
+              Inicia sesión o crea tu cuenta gratuita para guardar este QR en tu panel privado y ver sus analíticas.
+            </span>
+          </div>
+        )}
+
         {/* Error message */}
         {errorMsg && (
           <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
@@ -174,7 +200,7 @@ export default function QrGenerator({ onCreated, serverInfo, currentCustomizatio
             <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
           ) : (
             <>
-              <span>Generar Código QR Inteligente</span>
+              <span>{user ? 'Generar Código QR Inteligente' : 'Crear Cuenta y Generar QR'}</span>
               <ArrowRight className="w-4 h-4" />
             </>
           )}

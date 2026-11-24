@@ -52,10 +52,40 @@ export default function QrList({
   onSelectQr,
   onNewQr,
   onDeleteQr,
-  serverInfo
+  serverInfo,
+  user,
+  onRequireAuth
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedId, setCopiedId] = useState(null);
+
+  if (!user) {
+    return (
+      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-10 text-center shadow-xl">
+        <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center justify-center mx-auto mb-4">
+          <QrCode className="w-8 h-8" />
+        </div>
+        <h3 className="text-lg font-bold text-white">Panel Privado de Códigos QR</h3>
+        <p className="text-xs text-slate-400 mt-1.5 max-w-md mx-auto">
+          Inicia sesión o crea tu cuenta gratuita para guardar tus QRs, consultar sus estadísticas en tiempo real y gestionarlos desde cualquier dispositivo.
+        </p>
+        <div className="flex items-center justify-center gap-3 mt-5">
+          <button
+            onClick={() => onRequireAuth('login')}
+            className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
+          >
+            Iniciar Sesión
+          </button>
+          <button
+            onClick={() => onRequireAuth('register')}
+            className="px-5 py-2 rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-white shadow-md shadow-cyan-500/25 transition-all cursor-pointer"
+          >
+            Crear Cuenta Gratis
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const filtered = qrs.filter(qr => {
     const q = searchTerm.toLowerCase();

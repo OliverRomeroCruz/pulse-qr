@@ -22,7 +22,8 @@ export default function AnalyticsPanel({
   qrDetails,
   onRefreshDetails,
   onOpenEditModal,
-  onDeleteQr
+  onDeleteQr,
+  token
 }) {
   const [selectedDevice, setSelectedDevice] = useState('iphone');
   const [isSimulating, setIsSimulating] = useState(false);
@@ -69,9 +70,12 @@ export default function AnalyticsPanel({
   const handleSimulateScan = async () => {
     setIsSimulating(true);
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch(`/api/qrs/${qrDetails.id}/simulate-scan`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ devicePreset: selectedDevice }),
       });
       const data = await res.json();
@@ -99,7 +103,13 @@ export default function AnalyticsPanel({
       return;
     }
     try {
-      await fetch(`/api/qrs/${qrDetails.id}/reset`, { method: 'POST' });
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      await fetch(`/api/qrs/${qrDetails.id}/reset`, { 
+        method: 'POST',
+        headers
+      });
       onRefreshDetails();
     } catch (e) {
       console.error(e);

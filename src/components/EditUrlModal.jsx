@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Save, Edit3, Link2, Tag } from 'lucide-react';
 
-export default function EditUrlModal({ qr, isOpen, onClose, onSaved }) {
+export default function EditUrlModal({ qr, isOpen, onClose, onSaved, token }) {
   if (!isOpen || !qr) return null;
 
   const [title, setTitle] = useState(qr.title || '');
@@ -18,9 +18,12 @@ export default function EditUrlModal({ qr, isOpen, onClose, onSaved }) {
 
     setIsSaving(true);
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch(`/api/qrs/${qr.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           title: title.trim(),
           originalUrl: url.trim(),
