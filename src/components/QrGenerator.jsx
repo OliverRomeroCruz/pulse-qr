@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link2, Sparkles, Clipboard, Tag, Hash, ArrowRight, Check, Lock, Crown } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { parseJsonResponse } from '../utils/api';
 
 export default function QrGenerator({ 
   onCreated, 
@@ -74,14 +75,7 @@ export default function QrGenerator({
         }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (data.upgradeRequired || data.limitReached) {
-          onOpenPricing();
-        }
-        throw new Error(data.error || 'Error al crear el código QR');
-      }
+      const data = await parseJsonResponse(response);
 
       // Celebrate creation!
       confetti({
@@ -98,6 +92,9 @@ export default function QrGenerator({
       onCreated(data);
 
     } catch (err) {
+      if (err.upgradeRequired || err.limitReached) {
+        onOpenPricing();
+      }
       setErrorMsg(err.message);
     } finally {
       setIsSubmitting(false);

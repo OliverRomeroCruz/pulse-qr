@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Save, Edit3, Link2, Tag } from 'lucide-react';
+import { parseJsonResponse } from '../utils/api';
 
 export default function EditUrlModal({ qr, isOpen, onClose, onSaved, token }) {
   if (!isOpen || !qr) return null;
@@ -30,10 +31,7 @@ export default function EditUrlModal({ qr, isOpen, onClose, onSaved, token }) {
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Error al actualizar');
-      }
+      const data = await parseJsonResponse(res);
 
       onSaved(data);
       onClose();

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Mail, Lock, User, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { parseJsonResponse } from '../utils/api';
 
 export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) {
   if (!isOpen) return null;
@@ -29,11 +30,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Ocurrió un error en la autenticación.');
-      }
+      const data = await parseJsonResponse(res);
 
       // Success celebration!
       confetti({

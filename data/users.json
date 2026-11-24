@@ -5,6 +5,6 @@
     "email": "oliver@test.com",
     "passwordHash": "$2b$10$T5m0JQyuNnHi6d4s30ztBeYMzLX0nxs4unxykJn8569UelUxgWGz.",
     "createdAt": "2026-11-24T11:31:25.097Z",
-    "plan": "free"
+    "plan": "pro"
   }
 ]

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Check, Sparkles, Crown, Zap, Shield, ArrowRight } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { parseJsonResponse } from '../utils/api';
 
 export default function PricingModal({ isOpen, onClose, user, token, onUpgradeSuccess, onRequireAuth }) {
   if (!isOpen) return null;
@@ -29,10 +30,7 @@ export default function PricingModal({ isOpen, onClose, user, token, onUpgradeSu
         }
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'No se pudo activar el Plan Pro.');
-      }
+      const data = await parseJsonResponse(res);
 
       confetti({
         particleCount: 90,

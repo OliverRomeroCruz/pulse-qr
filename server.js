@@ -713,6 +713,22 @@ if (fs.existsSync(distPath)) {
   });
 }
 
+// Catch-all for undefined /api routes: ALWAYS return JSON, NEVER HTML
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: `Ruta de API no encontrada: ${req.method} ${req.originalUrl || req.path}` });
+});
+
+// Global error handler for API routes: ALWAYS return JSON
+app.use((err, req, res, next) => {
+  console.error('Unhandled server error:', err);
+  if (req.path.startsWith('/api')) {
+    return res.status(err.status || 500).json({
+      error: err.message || 'Error interno del servidor.'
+    });
+  }
+  res.status(500).send('Error interno del servidor');
+});
+
 // Start Server
 app.listen(PORT, '0.0.0.0', () => {
   const localIp = getLocalIp();

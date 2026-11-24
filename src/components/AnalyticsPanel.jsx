@@ -17,6 +17,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { parseJsonResponse } from '../utils/api';
 
 export default function AnalyticsPanel({
   qrDetails,
@@ -78,18 +79,16 @@ export default function AnalyticsPanel({
         headers,
         body: JSON.stringify({ devicePreset: selectedDevice }),
       });
-      const data = await res.json();
-      if (res.ok) {
-        setFeedbackMsg(`+1 Escaneo registrado (${selectedDevice.toUpperCase()})`);
-        confetti({
-          particleCount: 50,
-          spread: 45,
-          origin: { y: 0.7 },
-          colors: ['#06b6d4', '#10b981', '#6366f1']
-        });
-        setTimeout(() => setFeedbackMsg(''), 3000);
-        onRefreshDetails();
-      }
+      const data = await parseJsonResponse(res);
+      setFeedbackMsg(`+1 Escaneo registrado (${selectedDevice.toUpperCase()})`);
+      confetti({
+        particleCount: 50,
+        spread: 45,
+        origin: { y: 0.7 },
+        colors: ['#06b6d4', '#10b981', '#6366f1']
+      });
+      setTimeout(() => setFeedbackMsg(''), 3000);
+      onRefreshDetails();
     } catch (e) {
       console.error(e);
     } finally {

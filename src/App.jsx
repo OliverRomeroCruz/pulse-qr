@@ -10,6 +10,7 @@ import PrintableCardModal from './components/PrintableCardModal';
 import AuthModal from './components/AuthModal';
 import PricingModal from './components/PricingModal';
 import { BarChart3, Plus, Sparkles, QrCode, Layers, RefreshCw, ArrowLeft } from 'lucide-react';
+import { parseJsonResponse } from './utils/api';
 
 export default function App() {
   const [serverInfo, setServerInfo] = useState(null);
@@ -47,10 +48,7 @@ export default function App() {
       fetch('/api/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       })
-        .then(res => {
-          if (res.ok) return res.json();
-          throw new Error('Sesión no válida o expirada');
-        })
+        .then(parseJsonResponse)
         .then(data => {
           setUser(data.user);
         })
@@ -103,10 +101,8 @@ export default function App() {
   const fetchServerInfo = async () => {
     try {
       const res = await fetch('/api/info');
-      if (res.ok) {
-        const data = await res.json();
-        setServerInfo(data);
-      }
+      const data = await parseJsonResponse(res);
+      setServerInfo(data);
     } catch (e) {
       console.warn('Could not fetch server info:', e);
     }
@@ -122,16 +118,16 @@ export default function App() {
       const res = await fetch('/api/qrs', {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
-      if (res.ok) {
-        const data = await res.json();
-        setQrs(data);
-
-        // If no active QR is selected and we have items, select the first
-        if (!activeQrId && data.length > 0) {
-          setActiveQrId(data[0].id);
-        }
-      } else if (res.status === 401) {
+      if (res.status === 401) {
         setQrs([]);
+        return;
+      }
+      const data = await parseJsonResponse(res);
+      setQrs(Array.isArray(data) ? data : []);
+
+      // If no active QR is selected and we have items, select the first
+      if (!activeQrId && Array.isArray(data) && data.length > 0) {
+        setActiveQrId(data[0].id);
       }
     } catch (e) {
       console.error('Error fetching QRs:', e);
@@ -145,18 +141,16 @@ export default function App() {
       const res = await fetch(`/api/qrs/${id}`, {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
-      if (res.ok) {
-        const data = await res.json();
-        setActiveQrDetails(data);
-        if (data.customization) {
-          setCustomization({
-            fgColor: data.customization.fgColor || '#000000',
-            bgColor: data.customization.bgColor || '#ffffff',
-            errorLevel: data.customization.errorLevel || 'M',
-            margin: data.customization.margin !== undefined ? data.customization.margin : 2,
-            logo: data.customization.logo || null,
-          });
-        }
+      const data = await parseJsonResponse(res);
+      setActiveQrDetails(data);
+      if (data.customization) {
+        setCustomization({
+          fgColor: data.customization.fgColor || '#000000',
+          bgColor: data.customization.bgColor || '#ffffff',
+          errorLevel: data.customization.errorLevel || 'M',
+          margin: data.customization.margin !== undefined ? data.customization.margin : 2,
+          logo: data.customization.logo || null,
+        });
       }
     } catch (e) {
       console.error('Error loading QR details:', e);
@@ -170,19 +164,17 @@ export default function App() {
       const res = await fetch(`/api/qrs/${id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (res.ok) {
-        const data = await res.json();
-        setActiveQrDetails(prev => {
-          if (!prev || prev.id !== id) return data;
-          return {
-            ...prev,
-            stats: data.stats,
-            recentScans: data.recentScans,
-            totalScans: data.stats?.totalScans ?? prev.totalScans,
-            uniqueVisitors: data.stats?.uniqueVisitors ?? prev.uniqueVisitors,
-          };
-        });
-      }
+      const data = await parseJsonResponse(res);
+      setActiveQrDetails(prev => {
+        if (!prev || prev.id !== id) return data;
+        return {
+          ...prev,
+          stats: data.stats,
+          recentScans: data.recentScans,
+          totalScans: data.stats?.totalScans ?? prev.totalScans,
+          uniqueVisitors: data.stats?.uniqueVisitors ?? prev.uniqueVisitors,
+        };
+      });
     } catch (e) {
       console.error('Error polling stats:', e);
     }
