@@ -1,112 +1,53 @@
 [
   {
-    "id": "fb062630-a03a-4ce8-9f3b-01a30b906e8d",
-    "code": "cUtp6m",
-    "title": "IgDumeClick",
-    "originalUrl": "https://www.instagram.com/dumeclick/",
-    "createdAt": "2026-11-23T22:15:56.135Z",
-    "updatedAt": "2026-11-23T22:28:27.003Z",
+    "id": "17bfacd3-384e-485b-bd5b-fa011fb71afe",
+    "userId": "7e4dd68b-6011-4e32-9283-127e6379e980",
+    "code": "Htqn7q",
+    "title": "youtube",
+    "originalUrl": "https://www.youtube.com/",
+    "createdAt": "2026-11-24T12:57:06.030Z",
+    "updatedAt": "2026-11-24T12:57:06.030Z",
     "customization": {
       "fgColor": "#000000",
       "bgColor": "#ffffff",
       "errorLevel": "M",
       "margin": 2,
-      "logo": null,
-      "style": "squares"
+      "logo": null
     },
-    "scans": [
-      {
-        "id": "0d758a40-cf79-411c-bc0c-d5df7d6427e5",
-        "timestamp": "2026-11-23T22:16:33.502Z",
-        "ipHash": "1d9f5b30708080d3",
-        "deviceType": "desktop",
-        "deviceVendor": "PC/Mac",
-        "deviceModel": "",
-        "os": "Windows",
-        "osVersion": "10",
-        "browser": "Chrome",
-        "browserVersion": "157.0.0.0",
-        "referer": "Escaneo Directo"
-      },
-      {
-        "id": "6fb8b861-f46f-47dc-9220-8e9815823282",
-        "timestamp": "2026-11-23T22:18:03.451Z",
-        "ipHash": "60412cc706dce771",
-        "deviceType": "mobile",
-        "deviceVendor": "Apple",
-        "deviceModel": "iPhone",
-        "os": "iOS",
-        "osVersion": "26.5.0",
-        "browser": "Mobile Chrome",
-        "browserVersion": "158.0.8127.35",
-        "referer": "Escaneo Directo"
-      },
-      {
-        "id": "5cbdb360-c08e-499f-b181-bf7a79a659d6",
-        "timestamp": "2026-11-23T22:26:33.958Z",
-        "ipHash": "ce7f9d2243971a1f",
-        "deviceType": "desktop",
-        "deviceVendor": "PC",
-        "deviceModel": "Desktop",
-        "os": "Windows",
-        "osVersion": "11",
-        "browser": "Edge",
-        "browserVersion": "125.0",
-        "referer": "Simulación / Prueba interactiva"
-      },
-      {
-        "id": "553b4bf7-bf66-4011-b559-3ecbe4dd64b8",
-        "timestamp": "2026-11-23T22:26:43.490Z",
-        "ipHash": "1d9f5b30708080d3",
-        "deviceType": "desktop",
-        "deviceVendor": "PC/Mac",
-        "deviceModel": "",
-        "os": "Windows",
-        "osVersion": "10",
-        "browser": "Chrome",
-        "browserVersion": "157.0.0.0",
-        "referer": "Escaneo Directo"
-      },
-      {
-        "id": "35cce622-fb7a-47a9-b1ce-796fcd4605cd",
-        "timestamp": "2026-11-23T22:27:35.896Z",
-        "ipHash": "60412cc706dce771",
-        "deviceType": "mobile",
-        "deviceVendor": "Apple",
-        "deviceModel": "iPhone",
-        "os": "iOS",
-        "osVersion": "26.5.0",
-        "browser": "Mobile Chrome",
-        "browserVersion": "158.0.8127.35",
-        "referer": "Escaneo Directo"
-      },
-      {
-        "id": "b4a73f92-c66e-41a6-ba45-07a4f66cc50d",
-        "timestamp": "2026-11-23T22:28:20.675Z",
-        "ipHash": "60412cc706dce771",
-        "deviceType": "mobile",
-        "deviceVendor": "Apple",
-        "deviceModel": "iPhone",
-        "os": "iOS",
-        "osVersion": "26.5.0",
-        "browser": "Mobile Chrome",
-        "browserVersion": "158.0.8127.35",
-        "referer": "Escaneo Directo"
-      },
-      {
-        "id": "4d5c5b88-ebe3-4582-9fbc-aaac804b309f",
-        "timestamp": "2026-11-24T11:31:25.312Z",
-        "ipHash": "9eb8d8b935227910",
-        "deviceType": "desktop",
-        "deviceVendor": "PC/Mac",
-        "deviceModel": "",
-        "os": "Desconocido",
-        "osVersion": "",
-        "browser": "Desconocido",
-        "browserVersion": "",
-        "referer": "Escaneo Directo"
-      }
-    ],
-    "userId": "7e4dd68b-6011-4e32-9283-127e6379e980"
+    "scans": []
+  },
+  {
+    "id": "fa52c397-041b-47c4-8ba6-be46844190c0",
+    "userId": "7e4dd68b-6011-4e32-9283-127e6379e980",
+    "code": "6LSwdJ",
+    "title": "youtube2",
+    "originalUrl": "https://www.youtube.com/",
+    "createdAt": "2026-11-24T12:57:15.318Z",
+    "updatedAt": "2026-11-24T12:57:15.318Z",
+    "customization": {
+      "fgColor": "#000000",
+      "bgColor": "#ffffff",
+      "errorLevel": "M",
+      "margin": 2,
+      "logo": null
+    },
+    "scans": []
+  },
+  {
+    "id": "95e5adbb-c9f9-49d1-9f9a-506bfe546e11",
+    "userId": "7e4dd68b-6011-4e32-9283-127e6379e980",
+    "code": "YYBEAC",
+    "title": "youtube3",
+    "originalUrl": "https://www.youtube.com/",
+    "createdAt": "2026-11-24T12:57:30.976Z",
+    "updatedAt": "2026-11-24T12:57:30.976Z",
+    "customization": {
+      "fgColor": "#000000",
+      "bgColor": "#ffffff",
+      "errorLevel": "M",
+      "margin": 2,
+      "logo": null
+    },
+    "scans": []
   }
 ]

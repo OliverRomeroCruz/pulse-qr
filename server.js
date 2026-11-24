@@ -102,7 +102,7 @@ function requireAuth(req, res, next) {
     if (!user) {
       return res.status(401).json({ error: 'Usuario no encontrado o sesión expirada.' });
     }
-    req.user = { id: user.id, name: user.name, email: user.email };
+    req.user = { id: user.id, name: user.name, email: user.email, plan: user.plan || 'free' };
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Sesión inválida o expirada. Inicia sesión de nuevo.' });
@@ -215,6 +215,7 @@ app.post('/api/auth/register', (req, res) => {
     name: name.trim(),
     email: cleanEmail,
     passwordHash,
+    plan: 'free',
     createdAt: now,
   };
 
@@ -236,7 +237,7 @@ app.post('/api/auth/register', (req, res) => {
   const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '30d' });
 
   res.status(201).json({
-    user: { id: newUser.id, name: newUser.name, email: newUser.email },
+    user: { id: newUser.id, name: newUser.name, email: newUser.email, plan: 'free' },
     token,
     message: 'Cuenta creada con éxito.'
   });
@@ -264,9 +265,43 @@ app.post('/api/auth/login', (req, res) => {
   const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
 
   res.json({
-    user: { id: user.id, name: user.name, email: user.email },
+    user: { id: user.id, name: user.name, email: user.email, plan: user.plan || 'free' },
     token,
     message: 'Inicio de sesión correcto.'
+  });
+});
+
+// Upgrade user to Pro plan
+app.post('/api/auth/upgrade', requireAuth, (req, res) => {
+  const user = usersDatabase.find(u => u.id === req.user.id);
+  if (!user) {
+    return res.status(404).json({ error: 'Usuario no encontrado.' });
+  }
+
+  user.plan = 'pro';
+  saveUsers();
+
+  res.json({
+    success: true,
+    message: '¡Tu cuenta ha sido mejorada al Plan Pro con éxito! Ahora tienes códigos QR ilimitados.',
+    user: { id: user.id, name: user.name, email: user.email, plan: 'pro' }
+  });
+});
+
+// Downgrade / reset to free plan (for testing limits)
+app.post('/api/auth/downgrade', requireAuth, (req, res) => {
+  const user = usersDatabase.find(u => u.id === req.user.id);
+  if (!user) {
+    return res.status(404).json({ error: 'Usuario no encontrado.' });
+  }
+
+  user.plan = 'free';
+  saveUsers();
+
+  res.json({
+    success: true,
+    message: 'Cuenta restablecida al Plan Gratuito (máximo 3 QRs).',
+    user: { id: user.id, name: user.name, email: user.email, plan: 'free' }
   });
 });
 
@@ -322,6 +357,21 @@ app.get('/api/qrs', requireAuth, (req, res) => {
 // Create new QR for the logged-in user
 app.post('/api/qrs', requireAuth, (req, res) => {
   let { url, title, customCode, customization } = req.body;
+
+  // Freemium limit check: Free users can create at most 3 QRs
+  const user = usersDatabase.find(u => u.id === req.user.id);
+  const isPro = (user?.plan === 'pro') || (req.user.plan === 'pro');
+  const userQrsCount = qrDatabase.filter(qr => qr.userId === req.user.id).length;
+
+  if (!isPro && userQrsCount >= 3) {
+    return res.status(403).json({
+      error: 'Has alcanzado el límite de 3 códigos QR del Plan Gratuito. Pásate al Plan Pro para crear códigos QR ilimitados.',
+      limitReached: true,
+      upgradeRequired: true,
+      maxFreeQrs: 3,
+      currentCount: userQrsCount
+    });
+  }
 
   if (!url || typeof url !== 'string') {
     return res.status(400).json({ error: 'Debes proporcionar una URL válida.' });

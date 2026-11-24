@@ -8,6 +8,7 @@ import QrList from './components/QrList';
 import EditUrlModal from './components/EditUrlModal';
 import PrintableCardModal from './components/PrintableCardModal';
 import AuthModal from './components/AuthModal';
+import PricingModal from './components/PricingModal';
 import { BarChart3, Plus, Sparkles, QrCode, Layers, RefreshCw, ArrowLeft } from 'lucide-react';
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState('login');
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
 
   // Customization state: Default is Classic Black & White without emoji
   const [customization, setCustomization] = useState({
@@ -310,6 +312,7 @@ export default function App() {
         user={user}
         onOpenAuth={handleOpenAuth}
         onLogout={handleLogout}
+        onOpenPricing={() => setIsPricingModalOpen(true)}
       />
 
       {/* Main Container */}
@@ -329,6 +332,8 @@ export default function App() {
                   user={user}
                   token={token}
                   onRequireAuth={handleOpenAuth}
+                  onOpenPricing={() => setIsPricingModalOpen(true)}
+                  totalQrs={qrs.length}
                 />
 
                 <QrCustomizer
@@ -375,6 +380,7 @@ export default function App() {
               serverInfo={serverInfo}
               user={user}
               onRequireAuth={handleOpenAuth}
+              onOpenPricing={() => setIsPricingModalOpen(true)}
             />
           </div>
         )}
@@ -480,6 +486,17 @@ export default function App() {
         customization={customization}
         isOpen={isCardModalOpen}
         onClose={() => setIsCardModalOpen(false)}
+      />
+
+      <PricingModal
+        isOpen={isPricingModalOpen}
+        onClose={() => setIsPricingModalOpen(false)}
+        user={user}
+        token={token}
+        onUpgradeSuccess={(upgradedUser) => {
+          setUser(upgradedUser);
+        }}
+        onRequireAuth={handleOpenAuth}
       />
 
     </div>

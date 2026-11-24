@@ -7,10 +7,12 @@ import {
   Trash2, 
   Calendar, 
   QrCode, 
-  TrendingUp,
-  Plus,
-  Copy,
-  Check
+  TrendingUp, 
+  Plus, 
+  Copy, 
+  Check, 
+  Crown, 
+  Sparkles 
 } from 'lucide-react';
 import { renderQrToCanvas, createHighResCanvas, downloadCanvas } from '../utils/qrHelper';
 
@@ -54,10 +56,13 @@ export default function QrList({
   onDeleteQr,
   serverInfo,
   user,
-  onRequireAuth
+  onRequireAuth,
+  onOpenPricing
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedId, setCopiedId] = useState(null);
+
+  const isPro = user?.plan === 'pro';
 
   if (!user) {
     return (
@@ -127,6 +132,48 @@ export default function QrList({
 
   return (
     <div className="space-y-4">
+      {/* Plan Usage Banner */}
+      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-xl ${isPro ? 'bg-amber-500/10 text-amber-400' : 'bg-cyan-500/10 text-cyan-400'}`}>
+            {isPro ? <Crown className="w-5 h-5" /> : <QrCode className="w-5 h-5" />}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-white uppercase tracking-wider">
+                {isPro ? 'Plan Pro Activo' : 'Plan Gratuito'}
+              </span>
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                isPro 
+                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
+                  : qrs.length >= 3 
+                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' 
+                    : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+              }`}>
+                {isPro ? `${qrs.length} QRs (Ilimitados)` : `${qrs.length} de 3 QRs usados`}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {isPro 
+                ? 'Tienes creación ilimitada de códigos QR y analíticas avanzadas sin restricciones.' 
+                : qrs.length >= 3 
+                  ? 'Has alcanzado el límite de 3 QRs gratis. Pásate al Plan Pro para crear más.' 
+                  : `Te quedan ${3 - qrs.length} código(s) QR gratuito(s) disponibles.`}
+            </p>
+          </div>
+        </div>
+
+        {!isPro && (
+          <button
+            onClick={onOpenPricing}
+            className="w-full sm:w-auto px-3.5 py-1.75 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Mejorar a Plan Pro</span>
+          </button>
+        )}
+      </div>
+
       {/* Search & Actions Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-xl backdrop-blur-md">
         <div className="relative w-full sm:w-80">

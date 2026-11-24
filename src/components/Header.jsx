@@ -1,8 +1,7 @@
 import React from 'react';
-import { QrCode, Wifi, Plus, BarChart3, RefreshCw, LogOut, User } from 'lucide-react';
+import { QrCode, Plus, BarChart3, RefreshCw, LogOut, User, Crown, Sparkles } from 'lucide-react';
 
 export default function Header({ 
-  serverInfo, 
   onNewQr, 
   activeTab, 
   setActiveTab, 
@@ -10,8 +9,11 @@ export default function Header({
   onRefresh,
   user,
   onOpenAuth,
-  onLogout
+  onLogout,
+  onOpenPricing
 }) {
+  const isPro = user?.plan === 'pro';
+
   return (
     <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-xl sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
@@ -24,25 +26,45 @@ export default function Header({
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-lg text-white tracking-tight">Pulse<span className="text-cyan-400">QR</span></span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                Plataforma Multi-Usuario
-              </span>
+              {isPro ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                  <Crown className="w-3 h-3" />
+                  PRO
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                  Plan Gratuito
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-400 hidden sm:block">Generador inteligente con rastreo de escaneos y descargas HD</p>
           </div>
         </div>
 
-        {/* Network & Status Pills */}
-        <div className="hidden lg:flex items-center gap-3">
-          {serverInfo?.localIp && (
-            <div 
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs text-slate-300"
-              title="Tu móvil en la misma red Wi-Fi puede escanear y acceder a esta IP"
-            >
-              <Wifi className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-              <span>Wi-Fi IP:</span>
-              <span className="font-mono text-cyan-300 font-medium">{serverInfo.localIp}:{serverInfo.port}</span>
-            </div>
+        {/* Plan Status & Upgrade Pill (Replaces Wi-Fi IP) */}
+        <div className="hidden md:flex items-center gap-3">
+          {user && (
+            isPro ? (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-bold text-amber-300">
+                <Crown className="w-3.5 h-3.5 text-amber-400" />
+                <span>Plan Pro Activo (QRs Ilimitados)</span>
+              </div>
+            ) : (
+              <button
+                onClick={onOpenPricing}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 text-xs text-slate-200 transition-all group"
+                title="Ver límites de tu cuenta y opciones para crear más QRs"
+              >
+                <span className="text-slate-400 font-medium">Uso:</span>
+                <span className={`font-mono font-bold ${totalQrs >= 3 ? 'text-amber-400' : 'text-cyan-400'}`}>
+                  {totalQrs}/3 QRs Gratis
+                </span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 group-hover:bg-amber-500/20 transition-colors">
+                  <Sparkles className="w-3 h-3" />
+                  Mejorar
+                </span>
+              </button>
+            )
           )}
 
           <button
@@ -85,6 +107,14 @@ export default function Header({
             )}
           </button>
 
+          <button
+            onClick={onOpenPricing}
+            className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors"
+          >
+            <Crown className="w-3.5 h-3.5" />
+            <span>Precios</span>
+          </button>
+
           <div className="h-4 w-px bg-slate-800 mx-1 hidden sm:block" />
 
           {/* User Profile or Login buttons */}
@@ -92,9 +122,13 @@ export default function Header({
             <div className="flex items-center gap-2">
               <div 
                 className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-800/90 border border-slate-700/80 text-xs text-white"
-                title={`Conectado como ${user.email}`}
+                title={`Conectado como ${user.email} (${user.plan === 'pro' ? 'Plan Pro' : 'Plan Gratis'})`}
               >
-                <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-[11px] text-white">
+                <div className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-[11px] text-white ${
+                  isPro 
+                    ? 'bg-gradient-to-tr from-amber-500 to-orange-600' 
+                    : 'bg-gradient-to-tr from-cyan-500 to-blue-600'
+                }`}>
                   {user.name ? user.name[0].toUpperCase() : 'U'}
                 </div>
                 <span className="font-medium max-w-[110px] truncate hidden md:inline-block">{user.name}</span>
